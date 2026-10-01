@@ -47,11 +47,15 @@ export class RealEstateApiService {
       bedrooms: apiData.beds,
       bathrooms: apiData.baths,
       price: apiData.sale_price,
-      sqft: apiData.size_sqft,
-      features: [], // We could parse description to extract these
-      image: apiData.images[0] || "/placeholder.jpg",
-      // Include any other mapping logic here
-    } as Property;
+      rentPerYear: Math.round(apiData.sale_price * 0.05),
+      areaSqft: apiData.size_sqft,
+      image: apiData.images?.[0] || "/placeholder.jpg",
+      tags: [],
+      lifestyle: [],
+      offPlan: false,
+      amenities: [],
+      description: apiData.description || "",
+    };
   }
 
   /**
