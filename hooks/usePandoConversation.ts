@@ -1053,6 +1053,7 @@ export function usePandoConversation({
     reset,
     startListening,
     stopListening,
+    toggleLiveVoice,
     openProperty,
     goBack,
     showSaved,
