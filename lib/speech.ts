@@ -3,6 +3,8 @@
  * in the browser — no API calls. Callers fall back gracefully when unsupported.
  */
 
+import { speechMotion } from "./speechMotion";
+
 interface RecognitionAlternative {
   transcript: string;
 }
@@ -138,18 +140,33 @@ export function speak(
   const synth = window.speechSynthesis;
   if (!queue) synth.cancel();
   const id = ++current;
-  const utterance = new SpeechSynthesisUtterance(text.replace(/[“”]/g, ""));
+  const spoken = text.replace(/[“”]/g, "");
+  const utterance = new SpeechSynthesisUtterance(spoken);
   const voice = pandoVoice();
   if (voice) utterance.voice = voice;
   utterance.lang = voice?.lang ?? "en-US";
   utterance.rate = 1.0;
   utterance.pitch = 1.05;
-  utterance.onstart = () => id === current && onStart?.();
-  utterance.onend = utterance.onerror = () => id === current && onEnd?.();
+  // Lip-sync follows each utterance on its own token, so a queued follow-up line can't
+  // detach the mouth from the one still playing.
+  let line: number | undefined;
+  utterance.onstart = () => {
+    line = speechMotion.startText(spoken, utterance.rate);
+    if (id === current) onStart?.();
+  };
+  // Word boundaries keep the mouth on the real voice's timing.
+  utterance.onboundary = (e) => {
+    if (e.name === "word") speechMotion.boundary(e.charIndex, line);
+  };
+  utterance.onend = utterance.onerror = () => {
+    speechMotion.stopText(line);
+    if (id === current) onEnd?.();
+  };
   synth.speak(utterance);
 }
 
 export function stopSpeaking() {
   current++;
+  speechMotion.stopText();
   if (canSpeak()) window.speechSynthesis.cancel();
 }
