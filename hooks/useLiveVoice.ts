@@ -69,6 +69,8 @@ If collecting a phone number for auth, validate the length. If it's under 9 digi
         onSetupComplete: () => {
           setIsActive(true);
           resetSilenceTimer();
+          // Have Pando speak an intro when the connection opens
+          clientRef.current?.sendTextMessage("Greet the user warmly, say you are Pando, and ask what kind of home they are looking for in Dubai.");
         },
         onTurnComplete: () => {
           setIsSpeaking(false);
