@@ -47,7 +47,8 @@ export default function PandoSpeechBubble({
   onAction: (action: PandoAction) => void;
 }) {
   const reduce = useReducedMotion();
-  const intro = message.kind === "intro";
+  // The sign-in form rides inside the bubble: it needs the full layout, not the intro's compact one.
+  const intro = message.kind === "intro" && !authForm;
   const status = STATUS[phase];
   const listening = phase === "listening";
   // Area answers carry more to read: a wider bubble and slightly smaller type keep them compact.
@@ -60,7 +61,7 @@ export default function PandoSpeechBubble({
       animate={{ opacity: 1, scale: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 120, damping: 16, delay: 0.55 }}
       style={{ transformOrigin: "12% 100%" }}
-      className={`relative w-full ${intro ? "lg:w-[calc(var(--k)*290)]" : roomy ? "lg:-mr-[calc(var(--k)*40)] lg:w-[calc(var(--k)*390)]" : "lg:w-[calc(var(--k)*320)]"}`}
+      className={`relative w-full ${roomy ? "lg:-mr-[calc(var(--k)*40)] lg:w-[calc(var(--k)*390)]" : intro ? "lg:w-[calc(var(--k)*290)]" : "lg:w-[calc(var(--k)*320)]"}`}
     >
       <motion.div
         layout={!reduce}

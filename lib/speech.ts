@@ -99,6 +99,28 @@ export function listenOnce({
 
 export const canSpeak = () => typeof window !== "undefined" && "speechSynthesis" in window;
 
+/**
+ * `getVoices()` is populated asynchronously: on a cold page load it is empty, so a
+ * line spoken immediately would fall back to the OS default instead of Pando's voice.
+ * Resolves once the list arrives (or after a short grace period, if it never does).
+ */
+let voicesReady: Promise<void> | null = null;
+function whenVoicesReady(): Promise<void> {
+  if (!canSpeak()) return Promise.resolve();
+  if (voicesReady) return voicesReady;
+  voicesReady = new Promise<void>((resolve) => {
+    if (window.speechSynthesis.getVoices().length > 0) return resolve();
+    const settle = () => {
+      window.speechSynthesis.removeEventListener("voiceschanged", settle);
+      window.clearTimeout(grace);
+      resolve();
+    };
+    const grace = window.setTimeout(settle, 1_500);
+    window.speechSynthesis.addEventListener("voiceschanged", settle);
+  });
+  return voicesReady;
+}
+
 /** A warm English voice if the platform has one; otherwise the default. */
 function pandoVoice(): SpeechSynthesisVoice | undefined {
   const voices = window.speechSynthesis.getVoices().filter((v) => v.lang.startsWith("en"));
@@ -132,21 +154,38 @@ let current = 0;
  */
 export function speak(
   text: string,
-  { onStart, onEnd, queue = false }: { onStart?: () => void; onEnd?: () => void; queue?: boolean } = {},
+  {
+    onStart,
+    onEnd,
+    onBlocked,
+    queue = false,
+  }: { onStart?: () => void; onEnd?: () => void; onBlocked?: () => void; queue?: boolean } = {},
 ) {
   if (!canSpeak()) return onEnd?.();
   const synth = window.speechSynthesis;
+  // Cancel synchronously so a superseded line stops now, not after the voice list loads.
   if (!queue) synth.cancel();
   const id = ++current;
-  const utterance = new SpeechSynthesisUtterance(text.replace(/[“”]/g, ""));
-  const voice = pandoVoice();
-  if (voice) utterance.voice = voice;
-  utterance.lang = voice?.lang ?? "en-US";
-  utterance.rate = 1.0;
-  utterance.pitch = 1.05;
-  utterance.onstart = () => id === current && onStart?.();
-  utterance.onend = utterance.onerror = () => id === current && onEnd?.();
-  synth.speak(utterance);
+  void whenVoicesReady().then(() => {
+    // A newer line (or stopSpeaking) claimed the floor while we waited for the voices.
+    if (id !== current) return;
+    const utterance = new SpeechSynthesisUtterance(text.replace(/[“”]/g, ""));
+    const voice = pandoVoice();
+    if (voice) utterance.voice = voice;
+    utterance.lang = voice?.lang ?? "en-US";
+    utterance.rate = 1.0;
+    utterance.pitch = 1.05;
+    utterance.onstart = () => id === current && onStart?.();
+    utterance.onend = () => id === current && onEnd?.();
+    utterance.onerror = (e) => {
+      if (id !== current) return;
+      const reason = (e as SpeechSynthesisErrorEvent).error;
+      // Autoplay policy: the page has no user activation yet. The caller can retry on a gesture.
+      if (reason === "not-allowed" && onBlocked) return onBlocked();
+      onEnd?.();
+    };
+    synth.speak(utterance);
+  });
 }
 
 export function stopSpeaking() {

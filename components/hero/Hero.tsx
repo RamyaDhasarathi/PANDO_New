@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { useMemo, useEffect, type CSSProperties, type ReactNode, type RefObject } from "react";
+import { useMemo, type CSSProperties, type ReactNode, type RefObject } from "react";
 import type { Property } from "@/data/properties";
 import type { PandoConversation } from "@/hooks/usePandoConversation";
 import type { AppState } from "@/lib/appState";
@@ -116,22 +116,11 @@ export default function Hero({
     [showMap],
   );
 
-  // Pando is the only way in: tap him to talk, type when muted.
+  // Pando is the only way in: tap him (or the mic) to talk, type when muted.
   const toggleVoice = () => {
-    if (conv.voiceState === "listening" || conv.voiceState === "speaking") conv.stopListening();
-    else conv.toggleLiveVoice?.();
+    if (conv.phase === "listening") conv.stopListening();
+    else conv.startListening();
   };
-
-  // Auto-start the Gemini voice greeting when the landing page loads
-  useEffect(() => {
-    // Only run this once on mount
-    const timer = setTimeout(() => {
-      if (conv.voiceState === "idle") {
-        conv.toggleLiveVoice?.();
-      }
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [conv.toggleLiveVoice]);
 
   return (
     <ParallaxProvider value={value}>

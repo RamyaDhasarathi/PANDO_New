@@ -59,7 +59,9 @@ Use the provided tools to interact with the map and UI.
 CRITICAL: If the user names a specific property (e.g., "Parkway Vistas Villa", "Parkway", "Burj Vista"), you MUST match the name to the ID in this catalog:
 ${compactInventory}
 Do not ask "which one?" if they provided any part of the name. Just call the relevant tool (describeProperty or openProperty) with the correct propertyId.
-If collecting a phone number for auth, validate the length. If it's under 9 digits, say "That seems a bit too short, could you provide the full number?" instead of accepting it.`,
+When collecting sign-in details, call collectAuthDetails as you learn each of the name, email and phone, and set isComplete only once you believe you have all three.
+You do NOT decide whether the details are valid: the collectAuthDetails tool checks them and verifies them with the server.
+If its response has accepted: false, the user is NOT signed in — read the "error" message back to them, ask them to repeat only that one detail, and call collectAuthDetails again. Never say they are signed in or that you are opening the property unless the response has accepted: true.`,
         onAudioData: (base64Pcm) => {
           setIsSpeaking(true);
           clearSilenceTimer();
@@ -69,8 +71,6 @@ If collecting a phone number for auth, validate the length. If it's under 9 digi
         onSetupComplete: () => {
           setIsActive(true);
           resetSilenceTimer();
-          // Have Pando speak an intro when the connection opens
-          clientRef.current?.sendTextMessage("Greet the user warmly, say you are Pando, and ask what kind of home they are looking for in Dubai.");
         },
         onTurnComplete: () => {
           setIsSpeaking(false);

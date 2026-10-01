@@ -35,6 +35,13 @@ import { formatAed } from "@/lib/format";
 import { mapLayerName, parseMapLayerCommand, type MapLayerId } from "@/lib/mapLayerCommand";
 import { savedStore } from "@/lib/savedStore";
 import { canRecognizeSpeech, listenOnce, speak, stopSpeaking } from "@/lib/speech";
+import {
+  countryFor,
+  splitSpokenPhone,
+  validateEmail,
+  validateName,
+  validatePhone,
+} from "@/lib/authValidation";
 
 export type ConversationPhase =
   | "idle"
@@ -85,6 +92,8 @@ export type VoiceState = "idle" | "listening" | "thinking" | "speaking" | "muted
 export const INTRO_MESSAGE: PandoMessage = {
   kind: "intro",
   text: "What kind of home are you looking for?",
+  // The bubble shows "Hi, I'm Pando." as its heading; spoken, it has to be one sentence.
+  speech: "Hi, I'm Pando. What kind of home are you looking for?",
 };
 
 /** Loosening a search by voice, in place of filter controls: "any budget", "anywhere". */
@@ -104,6 +113,7 @@ export function usePandoConversation({
   onBack,
   onAuthFieldsUpdate,
   onAuthComplete,
+  authValues,
   isAuthenticated,
 }: {
   reducedMotion: boolean;
@@ -113,11 +123,14 @@ export function usePandoConversation({
   onBack?: () => void;
   /** Called when Gemini extracts user details from conversation. */
   onAuthFieldsUpdate?: (patch: { fullName?: string; email?: string; countryCode?: string; phoneNumber?: string }) => void;
-  /** Called when Gemini completes the conversational auth flow. */
-  onAuthComplete?: () => void;
+  /** Called once the spoken details have passed validation and the server has accepted them. */
+  onAuthComplete?: (verifiedName: string) => void;
+  /** The live auth form values, so the voice flow validates exactly what the form would. */
+  authValues?: { fullName: string; email: string; countryCode: string; phoneNumber: string };
   /** Whether the user is currently authenticated */
   isAuthenticated?: boolean;
 }) {
+
   const [phase, setPhase] = useState<ConversationPhase>("idle");
   const [message, setMessage] = useState<PandoMessage>(INTRO_MESSAGE);
   const [prefs, setPrefs] = useState<SearchPreferences>({});
@@ -148,6 +161,62 @@ export function usePandoConversation({
   useEffect(() => {
     isAuthenticatedRef.current = isAuthenticated;
   }, [isAuthenticated]);
+
+  /** Latest form values — the voice flow merges what it hears onto whatever is already typed. */
+  const authValuesRef = useRef(authValues);
+  useEffect(() => {
+    authValuesRef.current = authValues;
+  }, [authValues]);
+
+  /**
+   * The one place a sign-in can succeed. Voice and typed chat both land here, so neither
+   * can wave through details the form would reject, or skip the server check.
+   */
+  const finalizeAuth = useCallback(
+    async (patch: {
+      fullName?: string;
+      email?: string;
+      countryCode?: string;
+      phoneNumber?: string;
+    }): Promise<{ ok: true; name: string } | { ok: false; error: string }> => {
+      const current = authValuesRef.current ?? { fullName: "", email: "", countryCode: "+971", phoneNumber: "" };
+      const clean = Object.fromEntries(
+        Object.entries(patch).filter(([, v]) => v !== undefined && v !== ""),
+      ) as Partial<typeof current>;
+      // Keep the visible form in step with what Pando heard.
+      if (Object.keys(clean).length > 0) onAuthFieldsUpdate?.(clean);
+
+      const merged = { ...current, ...clean };
+      const country = countryFor(merged.countryCode);
+      const problem =
+        validateName(merged.fullName) ??
+        validateEmail(merged.email) ??
+        validatePhone(merged.phoneNumber, country.code, country.name);
+      if (problem) return { ok: false, error: problem };
+
+      try {
+        const res = await fetch("/api/auth/authenticate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: merged.fullName.trim(),
+            email: merged.email.trim(),
+            mobile: `${merged.countryCode} ${merged.phoneNumber.trim()}`,
+          }),
+        });
+        const data = (await res.json()) as { ok?: boolean; error?: string; user?: { name: string } };
+        if (!res.ok || !data.ok) {
+          return { ok: false, error: data.error ?? "Something went wrong. Please try again." };
+        }
+        const name = data.user?.name ?? merged.fullName.trim();
+        onAuthComplete?.(name);
+        return { ok: true, name };
+      } catch {
+        return { ok: false, error: "I couldn't complete that right now. Please try again." };
+      }
+    },
+    [onAuthComplete, onAuthFieldsUpdate],
+  );
 
   const toolHandlersRef = useRef<any>({});
 
@@ -180,24 +249,38 @@ export function usePandoConversation({
       }
 
       if (name === "collectAuthDetails") {
-        const patch: { fullName?: string; email?: string; phoneNumber?: string } = {};
+        const current = authValuesRef.current ?? { fullName: "", email: "", countryCode: "+971", phoneNumber: "" };
+        const patch: { fullName?: string; email?: string; countryCode?: string; phoneNumber?: string } = {};
         if (args.name) patch.fullName = args.name;
         if (args.email) patch.email = args.email;
-        if (args.phone) patch.phoneNumber = args.phone;
-        
-        if (Object.keys(patch).length > 0 && onAuthFieldsUpdate) {
-          onAuthFieldsUpdate(patch);
+        if (args.phone) {
+          // Spoken numbers arrive with or without a country code; the form keeps the two apart.
+          const { countryCode, phoneNumber } = splitSpokenPhone(args.phone, current.countryCode);
+          patch.countryCode = countryCode;
+          patch.phoneNumber = phoneNumber;
         }
-        
-        if (args.isComplete) {
-          if (onAuthComplete) onAuthComplete();
-          const targetId = toolHandlersRef.current.authTargetId || toolHandlersRef.current.selectedPropertyId;
-          if (targetId && toolHandlersRef.current.openProperty) {
-            const prop = getProperty(targetId);
-            if (prop) toolHandlersRef.current.openProperty(prop);
-          }
+
+        if (!args.isComplete) {
+          if (Object.keys(patch).length > 0) onAuthFieldsUpdate?.(patch);
+          return { success: true, message: "Auth details collected" };
         }
-        return { success: true, message: "Auth details collected" };
+
+        // Gemini thinks it has everything. The finalizer decides.
+        const outcome = await finalizeAuth(patch);
+        if (!outcome.ok) {
+          return {
+            success: false,
+            accepted: false,
+            error: outcome.error,
+            instruction: `Do not continue or claim they are signed in. Tell the user: "${outcome.error}" and ask them to repeat just that detail.`,
+          };
+        }
+        const targetId = toolHandlersRef.current.authTargetId || toolHandlersRef.current.selectedPropertyId;
+        if (targetId && toolHandlersRef.current.openProperty) {
+          const prop = getProperty(targetId);
+          if (prop) toolHandlersRef.current.openProperty(prop);
+        }
+        return { success: true, accepted: true, message: "Verified — opening the property." };
       }
 
       return { success: true };
@@ -249,8 +332,54 @@ export function usePandoConversation({
     setSpeaking(false);
   }, []);
 
-  /** Pando never starts talking on page load; any reply or mute toggle counts as the user engaging. */
+  /** Set once Pando has said anything out loud, so replies speak without re-arming the greeting. */
   const interacted = useRef(false);
+
+  /** Live mirrors of the current turn, for callbacks that must not re-run on every change. */
+  const messageRef = useRef(message);
+  const phaseRef = useRef(phase);
+  useEffect(() => {
+    messageRef.current = message;
+    phaseRef.current = phase;
+  }, [message, phase]);
+
+  /** The turn the mic interrupted, restored when listening is cancelled rather than answered. */
+  const interrupted = useRef<{ message: PandoMessage; phase: ConversationPhase }>({
+    message: INTRO_MESSAGE,
+    phase: "idle",
+  });
+
+  /**
+   * Pando greets the visitor as soon as the landing page is up. Browsers refuse audio
+   * until the page has user activation, so when the first attempt is blocked (or silently
+   * dropped) we retry on the first pointer or key event and then stand down.
+   */
+  const greeted = useRef(false);
+  useEffect(() => {
+    if (greeted.current) return;
+    const EVENTS = ["pointerdown", "keydown", "touchstart"] as const;
+    const disarm = () => EVENTS.forEach((e) => window.removeEventListener(e, onGesture));
+    const attempt = () => {
+      // Muted, or the user got in first and is already talking to Pando: the greeting is moot.
+      if (greeted.current || muted || phaseRef.current !== "idle" || messageRef.current.kind !== "intro") {
+        return disarm();
+      }
+      speak(INTRO_MESSAGE.speech ?? INTRO_MESSAGE.text, {
+        onStart: () => {
+          greeted.current = true;
+          interacted.current = true;
+          disarm();
+          setSpeaking(true);
+        },
+        onEnd: () => setSpeaking(false),
+      });
+    };
+    // Run after the gesture's own handlers, so tapping Pando to talk wins over the greeting.
+    const onGesture = () => window.setTimeout(attempt, 0);
+    EVENTS.forEach((e) => window.addEventListener(e, onGesture));
+    attempt();
+    return disarm;
+  }, [muted]);
 
   // Unmuted, Pando says every reply out loud (and re-reads the current line on unmute).
   useEffect(() => {
@@ -825,6 +954,24 @@ export function usePandoConversation({
             }
 
             case "auth_complete": {
+              // Gemini is only proposing a sign-in; the finalizer validates and verifies it.
+              const outcome = await finalizeAuth({
+                fullName: data.extractedName,
+                email: data.extractedEmail,
+                countryCode: data.extractedCountryCode,
+                phoneNumber: data.extractedPhone,
+              });
+              if (!outcome.ok) {
+                setAuthStep("phone");
+                setPhase(results ? "recommendations" : "collecting");
+                setMessage({
+                  kind: "info",
+                  label: "Property Access",
+                  text: outcome.error,
+                  speech: outcome.error,
+                });
+                return;
+              }
               setAuthStep(null);
               const targetId = data.targetPropertyId ?? authTargetId ?? selectedPropertyId;
               if (targetId) {
@@ -837,7 +984,6 @@ export function usePandoConversation({
                     text: data.reply ?? `Perfect! Opening ${prop.name} for you now.`,
                     speech: data.speech,
                   });
-                  onAuthComplete?.();
                   later(() => openProperty(prop), 600);
                   return;
                 }
@@ -915,6 +1061,7 @@ export function usePandoConversation({
       authStep,
       authTargetId,
       clearTimers,
+      finalizeAuth,
       goBack,
       later,
       mode,
@@ -950,6 +1097,10 @@ export function usePandoConversation({
   const startListening = useCallback(() => {
     clearTimers();
     stopRecognition.current?.();
+    // Remember where the conversation was, so cancelling the mic can return to it.
+    if (phaseRef.current !== "listening") {
+      interrupted.current = { message: messageRef.current, phase: phaseRef.current };
+    }
     // Talking to Pando means wanting to hear him back; also stops him hearing himself.
     silence();
     setMuted(false);
@@ -988,8 +1139,10 @@ export function usePandoConversation({
     stopRecognition.current?.();
     stopRecognition.current = null;
     setDraft("");
-    setPhase(results ? "recommendations" : "idle");
-    setMessage(INTRO_MESSAGE);
+    // Cancelling the mic must not wipe the conversation: pick the turn back up where it was.
+    const { message: prior, phase: priorPhase } = interrupted.current;
+    setPhase(priorPhase === "listening" ? (results ? "recommendations" : "idle") : priorPhase);
+    setMessage(prior);
   }, [clearTimers, results]);
 
   /** Muting silences Pando mid-sentence and closes the mic; typing still works. */
@@ -1053,7 +1206,6 @@ export function usePandoConversation({
     reset,
     startListening,
     stopListening,
-    toggleLiveVoice,
     openProperty,
     goBack,
     showSaved,

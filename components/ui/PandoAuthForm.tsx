@@ -3,80 +3,15 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertCircle, Check, ChevronDown, LoaderCircle, Lock, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { isValidPhoneNumber } from "libphonenumber-js";
-
-/* ------------------------------------------------------------------ */
-/* Country codes                                                        */
-/* ------------------------------------------------------------------ */
-const COUNTRY_CODES = [
-  { flag: "🇦🇪", name: "UAE", code: "+971" },
-  { flag: "🇮🇳", name: "India", code: "+91" },
-  { flag: "🇺🇸", name: "USA", code: "+1" },
-  { flag: "🇬🇧", name: "UK", code: "+44" },
-  { flag: "🇨🇦", name: "Canada", code: "+1 (CA)" },
-  { flag: "🇦🇺", name: "Australia", code: "+61" },
-  { flag: "🇸🇬", name: "Singapore", code: "+65" },
-  { flag: "🇸🇦", name: "Saudi Arabia", code: "+966" },
-  { flag: "🇶🇦", name: "Qatar", code: "+974" },
-  { flag: "🇰🇼", name: "Kuwait", code: "+965" },
-  { flag: "🇴🇲", name: "Oman", code: "+968" },
-  { flag: "🇧🇭", name: "Bahrain", code: "+973" },
-  { flag: "🇩🇪", name: "Germany", code: "+49" },
-  { flag: "🇫🇷", name: "France", code: "+33" },
-  { flag: "🇷🇺", name: "Russia", code: "+7" },
-  { flag: "🇨🇳", name: "China", code: "+86" },
-  { flag: "🇵🇰", name: "Pakistan", code: "+92" },
-  { flag: "🇧🇩", name: "Bangladesh", code: "+880" },
-  { flag: "🇵🇭", name: "Philippines", code: "+63" },
-  { flag: "🇿🇦", name: "South Africa", code: "+27" },
-  { flag: "🇪🇬", name: "Egypt", code: "+20" },
-  { flag: "🇱🇧", name: "Lebanon", code: "+961" },
-  { flag: "🇯🇴", name: "Jordan", code: "+962" },
-] as const;
-
-type CountryEntry = (typeof COUNTRY_CODES)[number];
-
-const MAX_PHONE_LENGTH: Record<string, number> = {
-  "+971": 9, // UAE
-  "+91": 10, // India
-  "+1": 10,  // USA/Canada
-  "+44": 10, // UK
-  "+61": 9,  // Australia
-  "+65": 8,  // Singapore
-  "+966": 9, // Saudi Arabia
-  "+974": 8, // Qatar
-  "+965": 8, // Kuwait
-  "+968": 8, // Oman
-  "+973": 8, // Bahrain
-  "+86": 11, // China
-};
-
-/* ------------------------------------------------------------------ */
-/* Validation helpers                                                   */
-/* ------------------------------------------------------------------ */
-function validateName(v: string): string | null {
-  const t = v.trim();
-  if (!t) return "Please enter your full name.";
-  if (t.length < 2) return "Name must be at least 2 characters.";
-  if (/^\d+$/.test(t)) return "Name should not be only numbers.";
-  return null;
-}
-function validateEmail(v: string): string | null {
-  if (!v.trim()) return "Please enter your email address.";
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())) return "That doesn't look like a valid email.";
-  return null;
-}
-function validatePhone(digits: string, countryCode: string, countryName: string): string | null {
-  if (!digits) return "Please enter your mobile number.";
-  if (!/^\d+$/.test(digits)) return "Please enter digits only — no letters or symbols.";
-  try {
-    const fullNumber = `${countryCode}${digits}`;
-    if (!isValidPhoneNumber(fullNumber)) return `Please enter a valid mobile number for ${countryName}.`;
-  } catch (e) {
-    return `Please enter a valid mobile number for ${countryName}.`;
-  }
-  return null;
-}
+import {
+  COUNTRY_CODES,
+  MAX_PHONE_LENGTH,
+  type CountryEntry,
+  dialCode,
+  validateEmail,
+  validateName,
+  validatePhone,
+} from "@/lib/authValidation";
 
 /* ------------------------------------------------------------------ */
 /* Controlled props                                                     */
@@ -146,7 +81,7 @@ export default function PandoAuthForm({
           : field === "email"
             ? validateEmail(val)
             : field === "phoneNumber"
-              ? validatePhone(val, selectedCountry.code.split(" ")[0], selectedCountry.name)
+              ? validatePhone(val, dialCode(selectedCountry.code), selectedCountry.name)
               : null;
       setErrors((prev) => ({ ...prev, [field]: err ?? undefined }));
     }
@@ -161,7 +96,7 @@ export default function PandoAuthForm({
         : field === "email"
           ? validateEmail(val)
           : field === "phoneNumber"
-            ? validatePhone(val, selectedCountry.code.split(" ")[0], selectedCountry.name)
+            ? validatePhone(val, dialCode(selectedCountry.code), selectedCountry.name)
             : null;
     if (err) setErrors((prev) => ({ ...prev, [field]: err }));
   };
@@ -169,7 +104,7 @@ export default function PandoAuthForm({
   const isValid =
     !validateName(fullName) &&
     !validateEmail(email) &&
-    !validatePhone(phoneNumber, selectedCountry.code.split(" ")[0], selectedCountry.name);
+    !validatePhone(phoneNumber, dialCode(selectedCountry.code), selectedCountry.name);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -180,7 +115,7 @@ export default function PandoAuthForm({
     setTouched(allTouched);
     const nameErr = validateName(fullName);
     const emailErr = validateEmail(email);
-    const phoneErr = validatePhone(phoneNumber, selectedCountry.code.split(" ")[0], selectedCountry.name);
+    const phoneErr = validatePhone(phoneNumber, dialCode(selectedCountry.code), selectedCountry.name);
     setErrors({ fullName: nameErr ?? undefined, email: emailErr ?? undefined, phoneNumber: phoneErr ?? undefined });
     if (nameErr || emailErr || phoneErr) return;
 
@@ -320,7 +255,7 @@ export default function PandoAuthForm({
               aria-label="Select country code"
             >
               <span>{selectedCountry.flag}</span>
-              <span className="font-medium">{selectedCountry.code.split(" ")[0]}</span>
+              <span className="font-medium">{dialCode(selectedCountry.code)}</span>
               <ChevronDown className={`size-3.5 text-brown/60 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
             </button>
 
@@ -353,7 +288,7 @@ export default function PandoAuthForm({
                           role="option"
                           aria-selected={c.code === selectedCountry.code}
                           onClick={() => {
-                            onValuesChange({ ...values, countryCode: c.code.split(" ")[0] });
+                            onValuesChange({ ...values, countryCode: dialCode(c.code) });
                             setDropdownOpen(false);
                             setSearch("");
                           }}
@@ -361,7 +296,7 @@ export default function PandoAuthForm({
                         >
                           <span>{c.flag}</span>
                           <span className="flex-1 text-ink">{c.name}</span>
-                          <span className="text-brown/60">{c.code.split(" ")[0]}</span>
+                          <span className="text-brown/60">{dialCode(c.code)}</span>
                         </button>
                       </li>
                     ))}
@@ -379,7 +314,7 @@ export default function PandoAuthForm({
             <input
               type="tel"
               inputMode="numeric"
-              maxLength={MAX_PHONE_LENGTH[selectedCountry.code.split(" ")[0]] || 12}
+              maxLength={MAX_PHONE_LENGTH[dialCode(selectedCountry.code)] || 12}
               value={phoneNumber}
               onChange={(e) => {
                 // Accept digits only

@@ -69,10 +69,11 @@ export default function PandoApp() {
     [],
   );
 
-  const onAuthCompleteVoice = useCallback(() => {
-    setUser(authValues.fullName || "Guest");
+  /** Reached only after the details passed validation and the server accepted them. */
+  const onAuthCompleteVoice = useCallback((verifiedName: string) => {
+    setUser(verifiedName);
     dispatch({ type: "signedIn" });
-  }, [authValues.fullName]);
+  }, []);
 
   // Pando drives selection: voice ("show me the second one") and pin taps both go through him.
   const conv = usePandoConversation({
@@ -82,6 +83,7 @@ export default function PandoApp() {
     onBack: back,
     onAuthFieldsUpdate: updateAuthFromConversation,
     onAuthComplete: onAuthCompleteVoice,
+    authValues,
   });
   const appState = deriveAppState(conv.phase, flow, conv.draft.trim() !== "");
 

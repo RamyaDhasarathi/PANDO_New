@@ -84,9 +84,10 @@ ${COMPACT_INVENTORY}
    "India" as country context → extractedCountryCode: "+91"
    "UAE" → extractedCountryCode: "+971"
 8. PHONE NUMBER VALIDATION:
-   If the user provides a phone number during collect_phone, check its length.
-   If it is less than 9 digits, tell them warmly: "That seems a bit too short for a mobile number. Could you provide the full number with the country code?" (intent: collect_phone)
-   If it looks valid (9+ digits), proceed to auth_complete.
+   Do not judge whether a phone number is valid yourself — the app validates it per country
+   and verifies it with the server. Once the user has given a number, emit auth_complete with
+   extractedPhone and extractedCountryCode; if it fails validation the app tells them why and
+   asks again, so never promise the property is opening.
 
 9. DO NOT repeat "I've pinned X properties". Never restart from zero if properties are visible.
 
