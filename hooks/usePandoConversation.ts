@@ -179,6 +179,27 @@ export function usePandoConversation({
         }
       }
 
+      if (name === "collectAuthDetails") {
+        const patch: { fullName?: string; email?: string; phoneNumber?: string } = {};
+        if (args.name) patch.fullName = args.name;
+        if (args.email) patch.email = args.email;
+        if (args.phone) patch.phoneNumber = args.phone;
+        
+        if (Object.keys(patch).length > 0 && onAuthFieldsUpdate) {
+          onAuthFieldsUpdate(patch);
+        }
+        
+        if (args.isComplete) {
+          if (onAuthComplete) onAuthComplete();
+          const targetId = toolHandlersRef.current.authTargetId || toolHandlersRef.current.selectedPropertyId;
+          if (targetId && toolHandlersRef.current.openProperty) {
+            const prop = getProperty(targetId);
+            if (prop) toolHandlersRef.current.openProperty(prop);
+          }
+        }
+        return { success: true, message: "Auth details collected" };
+      }
+
       return { success: true };
     }
   });
@@ -381,7 +402,9 @@ export function usePandoConversation({
     toolHandlersRef.current.openProperty = openProperty;
     toolHandlersRef.current.setSelectedPropertyId = setSelectedPropertyId;
     toolHandlersRef.current.setFocusIds = setFocusIds;
-  }, [runSearch, openProperty, setSelectedPropertyId, setFocusIds]);
+    toolHandlersRef.current.authTargetId = authTargetId;
+    toolHandlersRef.current.selectedPropertyId = selectedPropertyId;
+  }, [runSearch, openProperty, setSelectedPropertyId, setFocusIds, authTargetId, selectedPropertyId]);
 
   /** Called when the user successfully authenticates manually via the UI. */
   const notifyAuthSuccess = useCallback((p: Property) => {
