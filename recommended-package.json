@@ -1,0 +1,23 @@
+{
+  "name": "hi-pando-frontend",
+  "private": true,
+  "recommended_stack": {
+    "framework": "Next.js",
+    "language": "TypeScript",
+    "styling": "Tailwind CSS",
+    "animation": "Framer Motion",
+    "3d": "React Three Fiber / Three.js"
+  },
+  "dependencies": {
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "framer-motion": "latest",
+    "lucide-react": "latest"
+  },
+  "optionalDependencies": {
+    "@react-three/fiber": "latest",
+    "@react-three/drei": "latest",
+    "three": "latest"
+  }
+}

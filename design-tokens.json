@@ -1,0 +1,17 @@
+{
+  "brand": {
+    "mauve": "#b08699",
+    "brown": "#a93400",
+    "coral": "#ff3319",
+    "mint": "#b5ffc2"
+  },
+  "target": {
+    "desktop_width": 1536,
+    "desktop_height": 900,
+    "mobile_width": 390
+  },
+  "assets": {
+    "reference": "assets/ui-reference.png",
+    "mascot": "assets/pando-mascot.png"
+  }
+}

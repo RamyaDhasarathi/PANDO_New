@@ -1,0 +1,429 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------ */
+/* Brand tokens (design-tokens.json)                                   */
+/* ------------------------------------------------------------------ */
+@theme {
+  --color-mauve: #b08699;
+  --color-brown: #a93400;
+  --color-coral: #ff3319;
+  --color-mint: #b5ffc2;
+
+  /* Neutrals derived from the reference */
+  --color-ink: #210a1c;
+  --color-ink-soft: #735e6b;
+  --color-plum: #4b2b3b;
+  --color-cream: #fff8f4;
+  --color-blush: #f6e2df;
+  --color-price: #a11405;
+
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+
+  --ease-premium: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/*
+ * --k is the design pixel. Below 1280px it is a real pixel, so every component
+ * renders at the reference's native size. From 1280px the hero becomes a
+ * 1536×900 stage and --k scales with the viewport so the composition holds.
+ */
+@theme inline {
+  --spacing: calc(var(--k) * 4);
+
+  --text-10: calc(var(--k) * 10);
+  --text-11: calc(var(--k) * 11);
+  --text-12: calc(var(--k) * 12);
+  --text-13: calc(var(--k) * 13);
+  --text-14: calc(var(--k) * 14);
+  --text-15: calc(var(--k) * 15);
+  --text-16: calc(var(--k) * 16);
+  --text-17: calc(var(--k) * 17);
+  --text-18: calc(var(--k) * 18);
+  --text-20: calc(var(--k) * 20);
+  --text-22: calc(var(--k) * 22);
+  --text-24: calc(var(--k) * 24);
+  --text-28: calc(var(--k) * 28);
+  --text-32: calc(var(--k) * 32);
+  --text-36: calc(var(--k) * 36);
+  --text-38: calc(var(--k) * 38);
+  --text-40: calc(var(--k) * 40);
+
+  --radius-pill: 9999px;
+  --radius-s: calc(var(--k) * 12);
+  --radius-m: calc(var(--k) * 18);
+  --radius-card: calc(var(--k) * 24);
+  --radius-q: calc(var(--k) * 28);
+  --radius-bubble: calc(var(--k) * 32);
+}
+
+:root {
+  --k: 1px;
+  --mauve: #b08699;
+  --brown: #a93400;
+  --coral: #ff3319;
+  --mint: #b5ffc2;
+  --ink: #210a1c;
+  --sage: color-mix(in oklab, var(--mint) 38%, #4d4636);
+  --sage-light: color-mix(in oklab, var(--mint) 62%, #8a7a62);
+  color-scheme: light;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  background: #f6e2df;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: clip;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+::selection {
+  background: color-mix(in oklab, var(--coral) 30%, white);
+}
+
+:focus-visible {
+  outline: 2px solid var(--coral);
+  outline-offset: 3px;
+}
+/* The search pill shows its own focus glow (focus-within), so the bare input needs no outline. */
+#pando-query:focus-visible {
+  outline: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* Stage system                                                        */
+/* ------------------------------------------------------------------ */
+.k-root {
+  container-type: inline-size;
+}
+
+/*
+ * From 1024px the hero is a single-screen stage: an 800-unit composition plus
+ * the 100-unit feature strip, so 900 design units always fit the viewport.
+ * 1024–1279 uses a narrower 1200-wide layout (--nx/--ny/--nw); 1280+ the 1536-wide one.
+ * The 0.62px floor only kicks in on very short windows, where the page may scroll.
+ */
+@media (min-width: 1024px) {
+  .k-root {
+    --k: min(calc(100cqw / 1200), max(calc(100svh / 900), 0.62px));
+  }
+
+  .hero-screen {
+    display: flex;
+    flex-direction: column;
+    height: max(100svh, calc(var(--k) * 900));
+  }
+
+  .stage {
+    position: relative;
+    flex: none;
+    width: calc(var(--k) * 1200);
+    height: calc(var(--k) * 800);
+    margin: auto;
+  }
+
+  .stage .place {
+    position: absolute;
+    left: calc(var(--nx, var(--x)) * var(--k));
+    top: calc(var(--ny, var(--y)) * var(--k));
+  }
+  .stage .place[style*="--w"] {
+    width: calc(var(--nw, var(--w)) * var(--k));
+  }
+}
+
+@media (min-width: 1280px) {
+  .k-root {
+    --k: min(calc(100cqw / 1536), max(calc(100svh / 900), 0.62px));
+  }
+
+  .stage {
+    width: calc(var(--k) * 1536);
+  }
+
+  .stage .place {
+    left: calc(var(--x) * var(--k));
+    top: calc(var(--y) * var(--k));
+  }
+  .stage .place[style*="--w"] {
+    width: calc(var(--w) * var(--k));
+  }
+}
+
+/* The Pando scene is an 820×600 illustration with its own scale. */
+.scene {
+  --scene-k: calc(var(--k) * 0.63);
+  position: relative;
+  height: calc(600 * var(--scene-k));
+}
+.scene-canvas {
+  --k: var(--scene-k);
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: calc(var(--k) * 820);
+  height: calc(var(--k) * 600);
+  transform: translateX(-50%);
+}
+@media (min-width: 1024px) and (max-width: 1279.98px) {
+  .scene {
+    --scene-k: calc(var(--k) * 0.56);
+  }
+}
+@media (max-width: 1023.98px) {
+  .scene {
+    --scene-k: calc(min(100cqw, 640px) / 700);
+  }
+}
+@media (max-width: 767.98px) {
+  .scene {
+    --scene-k: calc(100cqw / 620);
+    overflow-x: clip;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Surfaces                                                            */
+/* ------------------------------------------------------------------ */
+.glass {
+  background: linear-gradient(160deg, rgb(255 255 255 / 0.82), rgb(255 246 244 / 0.62));
+  border: 1px solid rgb(255 255 255 / 0.75);
+  box-shadow:
+    0 calc(var(--k) * 24) calc(var(--k) * 60) calc(var(--k) * -20) rgb(120 40 40 / 0.25),
+    inset 0 1px 0 rgb(255 255 255 / 0.9);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+}
+
+.shadow-float {
+  box-shadow:
+    0 calc(var(--k) * 22) calc(var(--k) * 48) calc(var(--k) * -18) rgb(110 30 20 / 0.35),
+    0 calc(var(--k) * 4) calc(var(--k) * 14) rgb(120 40 40 / 0.1);
+}
+
+.question-card {
+  background: linear-gradient(
+    115deg,
+    color-mix(in oklab, var(--brown) 88%, var(--coral)) 0%,
+    color-mix(in oklab, var(--brown) 55%, var(--mauve)) 55%,
+    color-mix(in oklab, var(--mauve) 70%, white) 110%
+  );
+  box-shadow:
+    0 calc(var(--k) * 18) calc(var(--k) * 36) calc(var(--k) * -14) rgb(120 30 10 / 0.55),
+    inset 0 1px 0 rgb(255 255 255 / 0.35),
+    inset 0 0 0 1px rgb(255 255 255 / 0.18);
+}
+
+.text-home {
+  background: linear-gradient(100deg, #c42a0c 0%, var(--brown) 55%, #b23a0a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.wordmark {
+  background: linear-gradient(95deg, var(--coral) 0%, #d8350f 45%, var(--brown) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.btn-coral {
+  background: linear-gradient(135deg, #ff4a26 0%, var(--coral) 35%, #d4300f 100%);
+  box-shadow:
+    0 calc(var(--k) * 10) calc(var(--k) * 24) calc(var(--k) * -8) rgb(200 40 10 / 0.6),
+    inset 0 1px 0 rgb(255 255 255 / 0.35);
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Fine grain to keep large gradients from banding. */
+.grain {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.4 0 0 0 0 0.2 0 0 0 0 0.2 0 0 0 0.5 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  opacity: 0.18;
+  mix-blend-mode: soft-light;
+}
+
+/* ------------------------------------------------------------------ */
+/* Property-detail state: Pando and his bubble step aside, same page   */
+/* ------------------------------------------------------------------ */
+.pando-dock,
+.bubble-dock {
+  transition: transform 0.8s var(--ease-premium);
+}
+.pando-dock {
+  transform-origin: 50% 92%;
+}
+@media (min-width: 1024px) {
+  [data-app-state="property"] .pando-dock {
+    transform: scale(0.72);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pando-dock,
+  .bubble-dock {
+    transition: none;
+  }
+}
+
+/* Elements that glide to a new stage position when the layout state changes. */
+@media (min-width: 1024px) {
+  .stage .place-slide {
+    transition:
+      left 0.7s var(--ease-premium),
+      top 0.7s var(--ease-premium),
+      width 0.5s var(--ease-premium);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage .place-slide {
+    transition: none;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Map canvas                                                          */
+/* ------------------------------------------------------------------ */
+/* On map-visible states, prevent the blush body background from bleeding through. */
+.hero-screen[data-app-state="understanding"],
+.hero-screen[data-app-state="recommendations"],
+.hero-screen[data-app-state="property"] {
+  background: #1a1a1a;
+}
+/* The stage floats over the map: only its real content catches the pointer. */
+.map-stage,
+.map-stage .scene,
+.map-stage .bubble-dock {
+  pointer-events: none;
+}
+.map-stage > *,
+.map-stage .bubble-dock > * {
+  pointer-events: auto;
+}
+.map-stage > .scene {
+  pointer-events: none;
+}
+
+.pando-map .maplibregl-canvas {
+  outline: none;
+}
+.pando-map .maplibregl-ctrl-attrib {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  background: rgb(255 248 244 / 0.8);
+}
+/* Hide the entire attribution control (OpenFreeMap watermark) */
+.pando-map .maplibregl-ctrl-attrib {
+  display: none !important;
+}
+.pando-map .maplibregl-ctrl-attrib-button {
+  display: none !important;
+}
+.pando-map .maplibregl-ctrl-attrib-inner {
+  display: none !important;
+}
+.pando-map .maplibregl-ctrl-bottom-right {
+  bottom: calc(var(--k) * 110);
+}
+
+.pando-pin .pin-body {
+  transition:
+    transform 0.25s var(--ease-premium),
+    opacity 0.25s var(--ease-premium),
+    box-shadow 0.25s var(--ease-premium);
+  transform-origin: 50% 100%;
+}
+.pando-pin:hover .pin-body,
+.pando-pin:focus-visible .pin-body {
+  transform: translateY(calc(var(--k) * -3)) scale(1.06);
+}
+.pando-pin[data-state="muted"] {
+  opacity: 0.55;
+}
+.pando-pin[data-state="muted"] .pin-body {
+  transform: scale(0.88);
+}
+.pando-pin[data-state="muted"]:hover {
+  opacity: 1;
+}
+.pando-pin {
+  transition: opacity 0.35s var(--ease-premium);
+}
+/* Filtered out by the conversation: fades away and stops catching the pointer. */
+.pando-pin[data-state="hidden"] {
+  opacity: 0;
+  pointer-events: none;
+}
+.pando-pin[data-state="hidden"] .pin-body {
+  transform: translateY(calc(var(--k) * 6)) scale(0.6);
+}
+.pando-map .pando-marker:has([data-state="hidden"]) {
+  z-index: 0;
+  pointer-events: none;
+}
+.pando-pin[data-state="match"] .pin-body {
+  animation: pin-pop 0.5s var(--ease-premium) both;
+}
+@keyframes pin-pop {
+  from {
+    transform: translateY(calc(var(--k) * 8)) scale(0.7);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pando-pin .pin-body {
+    transition: none;
+    animation: none !important;
+  }
+}
+
+/* Markers paint above the atmosphere overlay (z 0); Pando's picks and the hovered pin rise. */
+.pando-map .pando-marker {
+  z-index: 1;
+}
+.pando-map .pando-marker:has([data-state="match"]) {
+  z-index: 2;
+}
+.pando-map .pando-marker:hover,
+.pando-map .pando-marker:focus-within {
+  z-index: 3;
+}
+
+/* The home Pando is talking about: lifted, ringed in mint, on top of its neighbours. */
+.pando-pin[data-focused] .pin-body {
+  transform: translateY(calc(var(--k) * -6)) scale(1.12);
+  box-shadow:
+    0 0 0 3px var(--mint),
+    0 calc(var(--k) * 14) calc(var(--k) * 30) calc(var(--k) * -10) rgb(120 30 10 / 0.6);
+}
+.pando-map .pando-marker:has([data-focused]) {
+  z-index: 4;
+}
+
+/*
+ * Welcome and conversation states hide the map behind the landing canvas, so its
+ * attribution has nothing to attribute yet — it fades in with the map itself.
+ */
+.pando-map .maplibregl-ctrl-attrib {
+  transition: opacity 0.6s var(--ease-premium);
+}
+[data-app-state="welcome"] .pando-map .maplibregl-ctrl-attrib,
+[data-app-state="conversation"] .pando-map .maplibregl-ctrl-attrib {
+  opacity: 0;
+}
