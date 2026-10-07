@@ -2,7 +2,7 @@
  * The map's base layers as a spoken vocabulary. Pando and the on-map control share this
  * list, so "show me the satellite view" and tapping the control mean exactly the same thing.
  */
-export type MapLayerId = "standard" | "satellite" | "terrain";
+export type MapLayerId = "standard" | "satellite" | "terrain" | "photoreal";
 
 export const MAP_LAYERS: Array<{
   id: MapLayerId;
@@ -13,14 +13,17 @@ export const MAP_LAYERS: Array<{
 }> = [
   { id: "standard", label: "Default", shortLabel: "Map", spoken: "the default map" },
   { id: "satellite", label: "Satellite", shortLabel: "Sat", spoken: "satellite view" },
-  { id: "terrain", label: "Terrain", shortLabel: "3D", spoken: "terrain view" },
+  { id: "terrain", label: "Terrain", shortLabel: "Relief", spoken: "terrain view" },
+  { id: "photoreal", label: "3D Buildings", shortLabel: "3D", spoken: "the photorealistic 3D view" },
 ];
 
 export const mapLayerName = (id: MapLayerId) => MAP_LAYERS.find((l) => l.id === id)?.spoken ?? "the map";
 
 const KEYWORDS: Array<[RegExp, MapLayerId]> = [
   [/\b(satellite|satelite|sattelite|aerial|imagery|bird'?s[- ]eye|from (?:the )?(?:sky|air|above))\b/, "satellite"],
-  [/\b(terrain|topograph\w*|relief|elevation|contours?|hillshade|3d)\b/, "terrain"],
+  // Checked before "terrain": "3d" now means the photorealistic mesh, not hillshade relief.
+  [/\b(3d|three[- ]?d|photoreal\w*|realistic|google earth)\b/, "photoreal"],
+  [/\b(terrain|topograph\w*|relief|elevation|contours?|hillshade)\b/, "terrain"],
   [/\b(default|standard|normal|plain|classic|street|road)\s+(view|map|layer|mode)\b|\b(?:default|standard|normal)\s+again\b/, "standard"],
 ];
 

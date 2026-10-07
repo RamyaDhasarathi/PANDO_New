@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowLeft, Bath, BedDouble, Building2, Check, Heart, MapPin, Maximize2 } from "lucide-react";
+import { ArrowLeft, Bath, BedDouble, Box, Building2, Check, Heart, MapPin, Maximize2 } from "lucide-react";
 import type { Property } from "@/data/properties";
 import { bedroomLabel, formatArea } from "@/lib/format";
 import type { ListingMode } from "@/lib/intentParser";
@@ -18,6 +18,8 @@ export default function PropertyDetail({
   backLabel,
   onToggleSave,
   onBack,
+  photoreal,
+  onTogglePhotoreal,
 }: {
   property: Property;
   reasons: string[];
@@ -27,6 +29,10 @@ export default function PropertyDetail({
   backLabel: string;
   onToggleSave: () => void;
   onBack: () => void;
+  /** Whether the map behind is currently in photorealistic 3D. Absent when unavailable. */
+  photoreal?: boolean;
+  /** Omitted when there's no Google key, which hides the 3D button entirely. */
+  onTogglePhotoreal?: () => void;
 }) {
   const reduce = useReducedMotion();
   const stats = [
@@ -138,6 +144,20 @@ export default function PropertyDetail({
             <Heart className="size-4" fill={saved ? "currentColor" : "none"} />
             {saved ? "Saved" : "Save"}
           </button>
+          {/* Photoreal 3D of this building, on the map behind. Hidden without a Google key. */}
+          {onTogglePhotoreal && (
+            <button
+              type="button"
+              onClick={onTogglePhotoreal}
+              aria-pressed={Boolean(photoreal)}
+              className={`flex h-11 cursor-pointer items-center gap-2 rounded-pill px-5 text-14 font-semibold transition-colors ${
+                photoreal ? "bg-mint text-ink" : "border border-brown/25 bg-white text-plum hover:border-coral/50"
+              }`}
+            >
+              <Box className="size-4" strokeWidth={1.9} />
+              {photoreal ? "Exit 3D" : "View in 3D"}
+            </button>
+          )}
           <button
             type="button"
             onClick={onBack}

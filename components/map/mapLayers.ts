@@ -155,6 +155,8 @@ function gradeLabels(map: MapLibreMap, layer: MapLayerId) {
 export function applyMapLayer(map: MapLibreMap, layer: MapLayerId, baseLayerIds: string[]) {
   if (layer === "satellite") ensureSatellite(map);
   if (layer === "terrain") ensureTerrain(map);
+  // "photoreal" is drawn by deck.gl over the top (see photoreal3d.ts). The basemap is left
+  // in its default state underneath, so a failed or slow tileset still shows a usable map.
 
   gradeLabels(map, layer);
 

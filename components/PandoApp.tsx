@@ -12,6 +12,7 @@ import PropertyDetail from "./properties/PropertyDetail";
 import AuthModal, { type AuthMode } from "./ui/AuthModal";
 import FeatureStrip from "./ui/FeatureStrip";
 import PandoAuthForm, { type AuthFormValues } from "./ui/PandoAuthForm";
+import { canShowPhotoreal } from "./map/photoreal3d";
 
 const DEFAULT_AUTH_VALUES: AuthFormValues = {
   fullName: "",
@@ -140,6 +141,12 @@ export default function PandoApp() {
                 backLabel={backLabel}
                 onToggleSave={() => savedStore.toggle(selected.property.id)}
                 onBack={conv.goBack}
+                photoreal={conv.mapLayer === "photoreal"}
+                onTogglePhotoreal={
+                  canShowPhotoreal()
+                    ? () => conv.setMapLayer(conv.mapLayer === "photoreal" ? "satellite" : "photoreal")
+                    : undefined
+                }
               />
             )
           }

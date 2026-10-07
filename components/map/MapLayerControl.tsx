@@ -1,15 +1,17 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Layers, Map as MapIcon, Mountain, Satellite } from "lucide-react";
+import { Box, Layers, Map as MapIcon, Mountain, Satellite } from "lucide-react";
 import { useCallback, useRef, useState, type ComponentType } from "react";
 import { useDismiss } from "@/hooks/useDismiss";
 import { MAP_LAYERS, type MapLayerId } from "@/lib/mapLayerCommand";
+import { canShowPhotoreal } from "./photoreal3d";
 
 const ICONS: Record<MapLayerId, ComponentType<{ className?: string; strokeWidth?: number }>> = {
   standard: MapIcon,
   satellite: Satellite,
   terrain: Mountain,
+  photoreal: Box,
 };
 
 /**
@@ -30,6 +32,8 @@ export default function MapLayerControl({
   useDismiss(ref, open, close);
 
   const active = MAP_LAYERS.find((l) => l.id === layer) ?? MAP_LAYERS[0];
+  // Photoreal 3D needs a Google key; without one the option is never offered.
+  const choices = MAP_LAYERS.filter((l) => l.id !== "photoreal" || canShowPhotoreal());
 
   return (
     <div
@@ -47,7 +51,7 @@ export default function MapLayerControl({
             transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
             className="glass absolute bottom-full left-0 mb-2 w-[calc(var(--k)*168)] min-w-[168px] rounded-m p-1.5"
           >
-            {MAP_LAYERS.map((l) => {
+            {choices.map((l) => {
               const Icon = ICONS[l.id];
               const selected = l.id === layer;
               return (

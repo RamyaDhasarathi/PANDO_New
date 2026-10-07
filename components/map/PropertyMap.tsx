@@ -13,6 +13,7 @@ import { fitPoints } from "@/lib/mapCamera";
 import { defaultReasons, type RecommendationResult } from "@/lib/recommend";
 import MapLayerControl from "./MapLayerControl";
 import { applyMapLayer, collectBaseLayers } from "./mapLayers";
+import { attachPhotoreal, canShowPhotoreal, type PhotorealHandle } from "./photoreal3d";
 import PropertyPin, { type PinState } from "./PropertyPin";
 
 /** OpenFreeMap: open OpenMapTiles vector style, no key needed for the POC. */
@@ -247,6 +248,10 @@ export default function PropertyMap({
   const [failed, setFailed] = useState(false);
   /** The style's own ground layers, captured after the brand grade so satellite can swap them out. */
   const baseLayersRef = useRef<string[]>([]);
+  /** deck.gl photoreal overlay, created the first time the 3D view is picked. */
+  const photorealRef = useRef<PhotorealHandle | null>(null);
+  /** Google requires the on-screen tiles' copyright to be shown while 3D is up. */
+  const [photorealCredits, setPhotorealCredits] = useState("");
 
   useEffect(() => {
     const container = containerRef.current;
@@ -337,6 +342,77 @@ export default function PropertyMap({
     else map.once("style.load", () => queueMicrotask(apply));
   }, [layer]);
 
+  /**
+   * Photoreal 3D. The overlay is built on first use, not on load: Google bills per root
+   * tileset request, so nothing is fetched until someone actually asks for the 3D view.
+   * Leaving 3D hides the layer, which stops all tile traffic but keeps the overlay warm.
+   */
+  const wantsPhotoreal = layer === "photoreal" && canShowPhotoreal();
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    let cancelled = false;
+
+    // Photoreal wants a near-horizontal camera; the brand map is capped lower.
+    map.setMaxPitch(wantsPhotoreal ? 85 : 65);
+    if (!wantsPhotoreal && map.getPitch() > 65) map.easeTo({ pitch: 60, duration: 400 });
+
+    if (!wantsPhotoreal) {
+      photorealRef.current?.setVisible(false);
+      return;
+    }
+
+    // At city zoom the mesh just looks like blurry satellite. Drop onto the home being
+    // discussed (or the first match) so 3D opens on something worth looking at.
+    const target =
+      propertyGeoJSON.features.find((f) => focusIds?.includes(f.properties.id)) ??
+      propertyGeoJSON.features.find((f) => f.properties.id === results?.items[0]?.property.id);
+    if (target) {
+      map.flyTo({
+        center: target.geometry.coordinates as [number, number],
+        zoom: 17,
+        pitch: 72,
+        duration: reduce ? 0 : 2000,
+        curve: 1.4,
+        essential: true,
+      });
+    }
+    if (photorealRef.current) {
+      photorealRef.current.setVisible(true);
+      return;
+    }
+    void attachPhotoreal(map, (credits) => {
+      if (!cancelled) setPhotorealCredits(credits);
+    }).then((handle) => {
+      // No key, no WebGL2, or a lost context: fall back so the control never claims 3D
+      // while the plain basemap is what's actually on screen.
+      if (!handle) {
+        if (!cancelled) onLayerChange("satellite");
+        return;
+      }
+      // The user may have left 3D while deck.gl was still loading.
+      if (cancelled) return handle.destroy();
+      photorealRef.current = handle;
+      handle.setVisible(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  // focusIds/results only pick the arrival point; entering 3D is what triggers the flight,
+  // so a later recommendation change must not yank the camera.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantsPhotoreal, reduce]);
+
+  // Tear the overlay down with the map, not with the effect above.
+  useEffect(
+    () => () => {
+      photorealRef.current?.destroy();
+      photorealRef.current = null;
+    },
+    [],
+  );
+
   const matches = useMemo(() => {
     const byId = new Map<string, { match: number; reasons: string[] }>();
     for (const r of results?.items ?? []) byId.set(r.property.id, { match: r.match, reasons: r.reasons });
@@ -399,6 +475,12 @@ export default function PropertyMap({
       {children}
       {/* No full-screen scrim over imagery — satellite tiles must render at natural contrast. */}
       {showControls && !failed && <MapLayerControl layer={layer} onChange={onLayerChange} />}
+      {/* Google's terms require the on-screen tiles' copyright to be visible in 3D. */}
+      {wantsPhotoreal && (
+        <div className="pointer-events-none absolute bottom-0 left-0 z-[6] max-w-full truncate px-2 py-1 text-[10px] leading-tight text-white/90 [text-shadow:0_1px_2px_rgb(0_0_0/0.8)]">
+          Google{photorealCredits ? ` · ${photorealCredits}` : ""}
+        </div>
+      )}
       {slots.map(({ property, el }) => {
         const m = matches.get(property.id);
         const state = pinState(property.id);
