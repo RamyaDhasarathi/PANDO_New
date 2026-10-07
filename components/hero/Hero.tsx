@@ -1,14 +1,15 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { Mic } from "lucide-react";
 import { useMemo, type CSSProperties, type ReactNode, type RefObject } from "react";
 import type { Property } from "@/data/properties";
 import type { PandoConversation } from "@/hooks/usePandoConversation";
 import type { AppState } from "@/lib/appState";
 import PropertyMap from "../map/PropertyMap";
 import ConversationInput from "./ConversationInput";
+import DubaiScene from "./DubaiScene";
 import HeroBackdrop from "./HeroBackdrop";
-import LandingBackdrop from "./LandingBackdrop";
 import { ParallaxLayer, ParallaxProvider, useParallaxPointer } from "./Parallax";
 import PandoScene from "./PandoScene";
 import PandoSpeechBubble from "./PandoSpeechBubble";
@@ -34,13 +35,13 @@ const at = (wide: Box, narrow: Box) => {
 };
 
 const LAYOUT = {
-  copy: at([130, 120, 380], [40, 104, 330]),
-  bubble: at([880, 96, 350], [730, 94, 350]),
-  /** Pando, sized to occupy ~⅓ of the stage width — prominent but leaves the map visible. */
-  scene: at([500, 258, 540], [370, 274, 480]),
-  search: at([428, 668, 680], [310, 668, 580]),
+  copy: at([110, 132, 420], [40, 112, 340]),
+  bubble: at([1150, 72, 340], [862, 64, 296]),
+  /** Pando, centre-right on the landing: the headline on the left, Pando and his input on the right. */
+  scene: at([710, 236, 560], [540, 256, 480]),
+  search: at([700, 690, 580], [520, 690, 520]),
   /** Voice state + mute, tucked beside Pando's right hand. */
-  voice: at([876, 560], [720, 564]),
+  voice: at([1196, 588], [950, 592]),
   /** On the property detail, under Pando where he steps aside: "go back" stays one tap away. */
   voiceDocked: at([1110, 668], [850, 668]),
   /** Property detail replaces the copy and the text input; Pando steps aside. */
@@ -51,7 +52,6 @@ const EASE = [0.22, 1, 0.36, 1] as const;
 
 export default function Hero({
   nav,
-  strip,
   conv,
   appState,
   detail,
@@ -63,8 +63,6 @@ export default function Hero({
   onBack,
 }: {
   nav: ReactNode;
-  /** Feature strip: part of the single-screen composition from 1024px. */
-  strip: ReactNode;
   conv: PandoConversation;
   saved: Set<string>;
   inputRef: RefObject<HTMLInputElement | null>;
@@ -121,6 +119,11 @@ export default function Hero({
     if (conv.phase === "listening") conv.stopListening();
     else conv.startListening();
   };
+  // Unmuted, Pando himself is the microphone; muted, he hands over to the keyboard.
+  const activatePando = () => {
+    if (!conv.muted) return toggleVoice();
+    inputRef.current?.focus({ preventScroll: true });
+  };
 
   return (
     <ParallaxProvider value={value}>
@@ -172,7 +175,7 @@ export default function Hero({
                 initial={false}
                 exit={{ opacity: 0, transition: { duration: 1.1, ease: EASE } }}
               >
-                <LandingBackdrop />
+                <DubaiScene />
               </motion.div>
             )}
           </AnimatePresence>
@@ -198,14 +201,28 @@ export default function Hero({
             <p className="text-13 font-semibold uppercase tracking-[0.2em] text-[#8c5a6b] lg:text-14 lg:tracking-[0.18em] xl:text-16 xl:tracking-[0.19em]">
               Your AI property companion
             </p>
-            <h1 className="mt-3 text-[clamp(38px,11vw,48px)] md:text-[52px] font-extrabold leading-[1.02] tracking-[-0.02em] text-ink lg:mt-2.5 lg:text-[calc(var(--k)*46)] lg:leading-[calc(var(--k)*46)] xl:text-[calc(var(--k)*50)] xl:leading-[calc(var(--k)*50)]">
-              Find a place <br />
-              that feels like <br />
-              <span className="text-home">home.</span>
+            <h1 className="mt-3 text-[clamp(34px,9.5vw,44px)] md:text-[48px] font-extrabold leading-[1.04] tracking-[-0.025em] text-ink lg:mt-3 lg:text-[calc(var(--k)*42)] lg:leading-[calc(var(--k)*45)] xl:text-[calc(var(--k)*46)] xl:leading-[calc(var(--k)*49)]">
+              Your next home shouldn&apos;t be a search.{" "}
+              <span className="mt-[0.18em] block">
+                It should be a <span className="text-home">conversation.</span>
+              </span>
             </h1>
-            <p className="mt-4 max-w-[calc(var(--k)*326)] text-16 leading-[1.45] text-[#5e4650] max-lg:max-w-md lg:mt-3.5 lg:text-[calc(var(--k)*16.5)]">
-              Tell Pando what you&apos;re looking for, and get personalised property recommendations in Dubai.
+            <p className="mt-4 max-w-[calc(var(--k)*330)] text-16 leading-[1.45] text-[#5e4650] max-lg:max-w-md lg:mt-4 lg:text-[calc(var(--k)*16)]">
+              Tell Pando how you want to live in Dubai. He&apos;ll do the looking.
             </p>
+            <motion.button
+              type="button"
+              onClick={activatePando}
+              whileHover={reduce ? undefined : { y: -2 }}
+              whileTap={{ scale: 0.97 }}
+              className="btn-coral group mt-6 inline-flex items-center gap-3 rounded-full py-2 pl-2 pr-6 text-16 font-bold text-white outline-none focus-visible:ring-4 focus-visible:ring-mint lg:mt-7"
+            >
+              <span className="relative grid size-10 place-items-center rounded-full bg-white/20">
+                {!reduce && <span aria-hidden className="absolute inset-0 animate-ping rounded-full bg-mint/40 [animation-duration:2.4s]" />}
+                <Mic className="relative size-5" aria-hidden />
+              </span>
+              Talk to Pando
+            </motion.button>
           </motion.div>
           )}
           </AnimatePresence>
@@ -234,11 +251,7 @@ export default function Hero({
             <PandoScene
               phase={conv.phase}
               speaking={conv.voiceState === "speaking"}
-              onActivate={() => {
-                // Unmuted, Pando himself is the microphone; muted, he hands over to the keyboard.
-                if (!conv.muted) return toggleVoice();
-                inputRef.current?.focus({ preventScroll: true });
-              }}
+              onActivate={activatePando}
             />
           </div>
 
@@ -282,9 +295,6 @@ export default function Hero({
             </div>
           )}
         </div>
-
-        {/* Feature strip: visible only on the landing page, hidden on the map */}
-        {!showMap && strip}
       </section>
     </ParallaxProvider>
   );

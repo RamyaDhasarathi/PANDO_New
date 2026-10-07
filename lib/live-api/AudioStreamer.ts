@@ -1,10 +1,17 @@
+import { speechMotion } from "../speechMotion";
+
 export class AudioStreamer {
   private audioContext: AudioContext;
+  /** Everything Pando plays passes through here on its way out, for lip-sync. */
+  private analyser: AnalyserNode;
   private nextPlayTime: number = 0;
   private activeSources: Set<AudioBufferSourceNode> = new Set();
   
   constructor() {
     this.audioContext = new AudioContext({ sampleRate: 24000 }); // Gemini live API output is typically 24kHz
+    this.analyser = this.audioContext.createAnalyser();
+    this.analyser.connect(this.audioContext.destination);
+    speechMotion.attachAnalyser(this.analyser);
   }
   
   public get context() {
@@ -37,7 +44,7 @@ export class AudioStreamer {
     // Play it
     const source = this.audioContext.createBufferSource();
     source.buffer = audioBuffer;
-    source.connect(this.audioContext.destination);
+    source.connect(this.analyser);
     
     // Schedule seamless playback
     if (this.nextPlayTime < this.audioContext.currentTime) {

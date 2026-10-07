@@ -183,12 +183,12 @@ body {
 }
 @media (max-width: 1023.98px) {
   .scene {
-    --scene-k: calc(min(100cqw, 640px) / 700);
+    --scene-k: calc(min(100cqw, 640px) / 820);
   }
 }
 @media (max-width: 767.98px) {
   .scene {
-    --scene-k: calc(100cqw / 620);
+    --scene-k: calc(100cqw / 700);
     overflow-x: clip;
   }
 }
@@ -271,6 +271,11 @@ body {
   transform-origin: 50% 92%;
 }
 @media (min-width: 1024px) {
+  /* On the landing, Pando is the hero: larger than in the map states. */
+  .hero-screen[data-app-state="welcome"] .pando-dock,
+  .hero-screen[data-app-state="conversation"] .pando-dock {
+    transform: scale(1.22);
+  }
   [data-app-state="property"] .pando-dock {
     transform: scale(0.72);
   }
@@ -426,4 +431,19 @@ body {
 [data-app-state="welcome"] .pando-map .maplibregl-ctrl-attrib,
 [data-app-state="conversation"] .pando-map .maplibregl-ctrl-attrib {
   opacity: 0;
+}
+
+/* Aviation beacon on the landing skyline's supertall. */
+@keyframes beacon {
+  0%, 70%, 100% { opacity: 0.15; }
+  78% { opacity: 1; }
+}
+.beacon {
+  animation: beacon 2.6s ease-in-out infinite;
+}
+.beacon-late {
+  animation-delay: 0.08s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .beacon { animation: none; }
 }

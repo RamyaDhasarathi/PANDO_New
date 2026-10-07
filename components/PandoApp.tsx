@@ -10,7 +10,6 @@ import Navbar from "./Navbar";
 import Hero from "./hero/Hero";
 import PropertyDetail from "./properties/PropertyDetail";
 import AuthModal, { type AuthMode } from "./ui/AuthModal";
-import FeatureStrip from "./ui/FeatureStrip";
 import PandoAuthForm, { type AuthFormValues } from "./ui/PandoAuthForm";
 import { canShowPhotoreal } from "./map/photoreal3d";
 
@@ -28,7 +27,6 @@ const DEFAULT_AUTH_VALUES: AuthFormValues = {
 export default function PandoApp() {
   const reduce = Boolean(useReducedMotion());
   const inputRef = useRef<HTMLInputElement>(null);
-  const featuresRef = useRef<HTMLElement>(null);
 
   const [flow, dispatch] = useReducer(flowReducer, initialFlow);
   const [user, setUser] = useState<string | null>(null);
@@ -111,7 +109,6 @@ export default function PandoApp() {
       <main className="k-root relative min-h-svh" data-app-state={appState}>
         <Hero
           nav={nav}
-          strip={<FeatureStrip highlight={0} sectionRef={featuresRef} />}
           conv={conv}
           appState={appState}
           authProperty={selected?.property ?? null}

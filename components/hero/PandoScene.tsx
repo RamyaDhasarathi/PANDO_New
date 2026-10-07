@@ -118,14 +118,15 @@ export default function PandoScene({
           </filter>
         </defs>
 
-        {/* Soft halo behind Pando */}
+        {/* Soft halo behind Pando: atmosphere, kept low so his face never sits on a white glare */}
         <motion.ellipse
           cx={410}
           cy={270}
           rx={330}
           ry={300}
           fill="url(#halo)"
-          animate={reduce ? undefined : { opacity: busy ? [0.7, 1, 0.7] : [0.75, 0.95, 0.75] }}
+          opacity={0.38}
+          animate={reduce ? undefined : { opacity: busy ? [0.45, 0.7, 0.45] : [0.32, 0.44, 0.32] }}
           transition={{ duration: busy ? 1.4 : 6, repeat: Infinity, ease: "easeInOut" }}
         />
 

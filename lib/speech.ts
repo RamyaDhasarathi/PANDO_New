@@ -3,6 +3,8 @@
  * in the browser — no API calls. Callers fall back gracefully when unsupported.
  */
 
+import { speechMotion } from "./speechMotion";
+
 interface RecognitionAlternative {
   transcript: string;
 }
@@ -166,17 +168,31 @@ export function speak(
   // Cancel synchronously so a superseded line stops now, not after the voice list loads.
   if (!queue) synth.cancel();
   const id = ++current;
+  const spoken = text.replace(/[“”]/g, "");
   void whenVoicesReady().then(() => {
     // A newer line (or stopSpeaking) claimed the floor while we waited for the voices.
     if (id !== current) return;
-    const utterance = new SpeechSynthesisUtterance(text.replace(/[“”]/g, ""));
+    const utterance = new SpeechSynthesisUtterance(spoken);
     const voice = pandoVoice();
     if (voice) utterance.voice = voice;
     utterance.lang = voice?.lang ?? "en-US";
     utterance.rate = 1.0;
     utterance.pitch = 1.05;
-    utterance.onstart = () => id === current && onStart?.();
-    utterance.onend = () => id === current && onEnd?.();
+  // Lip-sync follows each utterance on its own token, so a queued follow-up line can't
+  // detach the mouth from the one still playing.
+  let line: number | undefined;
+    utterance.onstart = () => {
+    line = speechMotion.startText(spoken, utterance.rate);
+    if (id === current) onStart?.();
+    };
+  // Word boundaries keep the mouth on the real voice's timing.
+  utterance.onboundary = (e) => {
+    if (e.name === "word") speechMotion.boundary(e.charIndex, line);
+  };
+  utterance.onend = () => {
+    speechMotion.stopText(line);
+    if (id === current) onEnd?.();
+  };
     utterance.onerror = (e) => {
       if (id !== current) return;
       const reason = (e as SpeechSynthesisErrorEvent).error;
@@ -190,5 +206,6 @@ export function speak(
 
 export function stopSpeaking() {
   current++;
+  speechMotion.stopText();
   if (canSpeak()) window.speechSynthesis.cancel();
 }
